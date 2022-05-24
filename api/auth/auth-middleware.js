@@ -1,5 +1,6 @@
 const { JWT_SECRET } = require("../secrets"); // use this secret!
 const jwt = require('jsonwebtoken');
+const Users = require('../users/users-model')
 
 const restricted = async (req, res, next) => {
   if (req.headers.authorization == null) {
@@ -42,9 +43,9 @@ const only = role_name => (req, res, next) => {
 
     Pull the decoded token from the req object, to avoid verifying it again!
   */
-  if (req.decodedJwt == null) {
-    next({ message: "Internal server error"})
-    return
+  if(req.decodedJwt == null) {
+    next({ message: 'internal server error!' });
+    return;
   }
 
   if (role_name != req.decodedJwt.role_name) {
@@ -55,7 +56,7 @@ const only = role_name => (req, res, next) => {
 }
 
 
-const checkUsernameExists = (req, res, next) => {
+const checkUsernameExists = async (req, res, next) => {
   /*
     If the username in req.body does NOT exist in the database
     status 401
@@ -63,8 +64,14 @@ const checkUsernameExists = (req, res, next) => {
       "message": "Invalid credentials"
     }
   */
+  let {username} = req.body;
+  let result = await Users.findBy({username})
+  if (result.length > 0) {
+    next()
+  } else {
+    next({ status: 401, message: "Invalid credentials" })
+  }
 }
-
 
 const validateRoleName = (req, res, next) => {
   /*
@@ -85,6 +92,27 @@ const validateRoleName = (req, res, next) => {
       "message": "Role name can not be longer than 32 chars"
     }
   */
+  // if (req.body.role_name != null) {
+  //   req.body.role_name = req.body.role_name.trim();
+  // } 
+  // if (req.body.role_name.trim() ===  "" || req.body.role_name == null) {
+  //   req.body.role_name = "student";
+  // }
+
+  if (req.body.role_name == null || req.body.role_name.trim() ===  "") {
+    req.body.role_name = "student";
+  } else {
+    req.body.role_name = req.body.role_name.trim()
+  } 
+  if (req.body.role_name === "admin") {
+    next({ status: 422, message: "Role name can not be admin" });
+    return
+  } 
+  if (req.body.role_name.trim().length > 32) {
+    next({ status: 422, message: "Role name can not be longer than 32 chars" });
+    return
+  } 
+  next()
 }
 
 module.exports = {
